@@ -1,8 +1,5 @@
-import init, { greet } from "./rendering/pkg/rendering.js";
-init()
-	.then(() => {
-		greet("WebAssembly")
-	});
+import init, { greet } from "./rust-rendering/rendering.js";
+init();
 const keys = new Set();
 const newkeys = new Set();
 let mouseButtons = 0;

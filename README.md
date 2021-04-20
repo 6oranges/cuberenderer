@@ -1,7 +1,7 @@
 ## Building Rust
 
+The first time run `wasm-pack build --out-dir ../www/rust-rendering --target web` to regenerate target directory
 Normally just run `wasm-pack build --out-dir ../www/rust-rendering` from within rendering directory
-the target directory can be removed, then to regenerate it run `wasm-pack build --out-dir ../www/rust-rendering --target web`
 
 ## Running a local web server
 
