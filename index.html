@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" style="width:100%;height:100%;margin:0;padding:0;">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Cube Renderer</title>
+  <meta name="description" content="Cube Renderer is a minecraft-like game that runs in the browser">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16x16.png">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="mask-icon" href="./icons/safari-pinned-tab.svg" color="#5bbad5">
+  <link rel="shortcut icon" href="./icons/favicon.ico">
+  <meta name="msapplication-TileColor" content="#2d89ef">
+  <meta name="msapplication-config" content="./icons/browserconfig.xml">
+  <meta name="theme-color" content="#ffffff">
+  <script>if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(err => console.error('Error', err)); }
+  </script>
+</head>
+
+<body style="width:100%;height:100%;margin:0;padding:0;display: flex;
+  align-items: center;
+  justify-content: center;">
+
+  <noscript>This page contains webassembly and javascript content, please enable javascript in your browser.</noscript>
+  <canvas id="canvas" style="position:absolute;width:100%;height:100%;margin:0;padding:0;"></canvas>
+  <div id="apple" style="position:absolute;left:0;bottom:0;background-color:white;"></div>
+  <div id="circle" style="z-index:1;width:10px;height:10px;border:1px solid black;border-radius:100%;"></div>
+  <script src="./glMatrix.js"></script>
+  <script src="./touchlistener.js"></script>
+  <script src="./index.js"></script>
+</body>
+
+</html>
