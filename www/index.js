@@ -245,7 +245,7 @@ function initBuffers(gl) {
 	for (let x = 0; x < CHUNKSIZE + 1; x++) {
 		for (let y = 0; y < CHUNKSIZE + 1; y++) {
 			for (let z = 0; z < CHUNKSIZE + 1; z++) {
-				for (let c = 0; c < 3; c++) {
+				for (let c = 0; c < 4; c++) {
 					positions.push(-CHUNKSIZED2 - .5 + x)
 					positions.push(-CHUNKSIZED2 - .5 + y)
 					positions.push(-CHUNKSIZED2 - .5 + z)
@@ -469,7 +469,7 @@ function cameraMatrices(gl, projectionMatrix) {
 		zNear,
 		zFar);
 }
-const CHUNKSIZE = 16;
+const CHUNKSIZE = 14;
 const CHUNKSIZED2 = Math.floor(CHUNKSIZE / 2);
 class Chunk {
 	constructor(x = 0, y = 0, z = 0) {
@@ -753,7 +753,7 @@ const world = new Chunks((chunk, x, y, z) => {
 		for (let i = -CHUNKSIZED2; i < Math.ceil(CHUNKSIZE / 2); i++) {
 			for (let j = -CHUNKSIZED2; j < Math.ceil(CHUNKSIZE / 2); j++) {
 				const height = Math.floor(perlin((i + x * CHUNKSIZE) * .01, (j + z * CHUNKSIZE) * .01) * 64 + perlin((i + x * CHUNKSIZE) * .1, (j + z * CHUNKSIZE) * .1) * 7 + 8);
-				world.setBlock(i + x * CHUNKSIZE, height - 3 + y * CHUNKSIZE, j + z * CHUNKSIZE, 9, false);
+				//world.setBlock(i + x * CHUNKSIZE, height - 3 + y * CHUNKSIZE, j + z * CHUNKSIZE, 9, false);
 				for (let k = height - 2; k < height; k++) {
 					world.setBlock(i + x * CHUNKSIZE, k + y * CHUNKSIZE, j + z * CHUNKSIZE, 2, false);
 					//chunk.data[j + i*CHUNKSIZE*CHUNKSIZE+k*CHUNKSIZE]=2; // Stone

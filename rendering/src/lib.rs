@@ -3,7 +3,7 @@ use wasm_bindgen::prelude::*;
 extern "C" {
     pub fn alert(s: &str);
 }
-const CHUNK_SIZE: usize = 16;
+const CHUNK_SIZE: usize = 14;
 #[wasm_bindgen]
 pub fn greet(name: &str) {
     alert(&format!("Hello, {}!", name));
@@ -45,6 +45,10 @@ const TOP: usize = 2;
 const BOTTOM: usize = 3;
 const RIGHT: usize = 4;
 const LEFT: usize = 5;
+const MAP_LOOKUP: [usize; 24] = [
+    2, 2, 2, 1, 1, 2, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 2, 0, 3, 3, 1, 2, 2, 1,
+];
+
 // Front Back Top Bottom Right Left
 const COLOR_LOOKUP: [[[f32; 4]; 6]; 9] = [
     [
@@ -174,7 +178,7 @@ pub fn get_index(side: usize, x: usize, y: usize, z: usize) -> usize {
     return (CHUNK_SIZE * CHUNK_SIZE * x + CHUNK_SIZE * y + z) * 6 + side;
 }
 pub fn get_other_index(x: usize, y: usize, z: usize, c: usize) -> u16 {
-    return ((((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * x + (CHUNK_SIZE + 1) * y + z) * 3) + c) as u16;
+    return ((((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * x + (CHUNK_SIZE + 1) * y + z) * 4) + c) as u16;
 }
 // Side is 0:-x  1:-y  2:-z
 pub fn find(
@@ -266,57 +270,57 @@ pub fn compress(data_raw: &[u8]) -> Vec<u16> {
                 let zp = xn + 5;
                 if faces[xn] > 0 {
                     // L
-                    positions.push(get_other_index(x, y, z, 0));
-                    positions.push(get_other_index(x, y, z + 1, 0));
-                    positions.push(get_other_index(x, y + 1, z + 1, 0));
-                    positions.push(get_other_index(x, y + 1, z + 1, 0));
-                    positions.push(get_other_index(x, y + 1, z, 0));
-                    positions.push(get_other_index(x, y, z, 0));
+                    positions.push(get_other_index(x, y, z, MAP_LOOKUP[0]));
+                    positions.push(get_other_index(x, y, z + 1, MAP_LOOKUP[1]));
+                    positions.push(get_other_index(x, y + 1, z + 1, MAP_LOOKUP[2]));
+                    positions.push(get_other_index(x, y + 1, z + 1, MAP_LOOKUP[2]));
+                    positions.push(get_other_index(x, y + 1, z, MAP_LOOKUP[3]));
+                    positions.push(get_other_index(x, y, z, MAP_LOOKUP[0]));
                 }
                 if faces[yn] > 0 {
                     // D
-                    positions.push(get_other_index(x, y, z, 1));
-                    positions.push(get_other_index(x + 1, y, z, 0));
-                    positions.push(get_other_index(x + 1, y, z + 1, 0));
-                    positions.push(get_other_index(x + 1, y, z + 1, 0));
-                    positions.push(get_other_index(x, y, z + 1, 1));
-                    positions.push(get_other_index(x, y, z, 1));
+                    positions.push(get_other_index(x, y, z, MAP_LOOKUP[4]));
+                    positions.push(get_other_index(x + 1, y, z, MAP_LOOKUP[5]));
+                    positions.push(get_other_index(x + 1, y, z + 1, MAP_LOOKUP[6]));
+                    positions.push(get_other_index(x + 1, y, z + 1, MAP_LOOKUP[6]));
+                    positions.push(get_other_index(x, y, z + 1, MAP_LOOKUP[7]));
+                    positions.push(get_other_index(x, y, z, MAP_LOOKUP[4]));
                 }
                 if faces[zn] > 0 {
                     // B
-                    positions.push(get_other_index(x, y, z, 2));
-                    positions.push(get_other_index(x, y + 1, z, 1));
-                    positions.push(get_other_index(x + 1, y + 1, z, 0));
-                    positions.push(get_other_index(x + 1, y + 1, z, 0));
-                    positions.push(get_other_index(x + 1, y, z, 1));
-                    positions.push(get_other_index(x, y, z, 2));
+                    positions.push(get_other_index(x, y, z, MAP_LOOKUP[8]));
+                    positions.push(get_other_index(x, y + 1, z, MAP_LOOKUP[9]));
+                    positions.push(get_other_index(x + 1, y + 1, z, MAP_LOOKUP[10]));
+                    positions.push(get_other_index(x + 1, y + 1, z, MAP_LOOKUP[10]));
+                    positions.push(get_other_index(x + 1, y, z, MAP_LOOKUP[11]));
+                    positions.push(get_other_index(x, y, z, MAP_LOOKUP[8]));
                 }
                 if faces[xp] > 0 {
                     // R
-                    positions.push(get_other_index(x + 1, y, z, 2));
-                    positions.push(get_other_index(x + 1, y + 1, z, 1));
-                    positions.push(get_other_index(x + 1, y + 1, z + 1, 0));
-                    positions.push(get_other_index(x + 1, y + 1, z + 1, 0));
-                    positions.push(get_other_index(x + 1, y, z + 1, 1));
-                    positions.push(get_other_index(x + 1, y, z, 2));
+                    positions.push(get_other_index(x + 1, y, z, MAP_LOOKUP[12]));
+                    positions.push(get_other_index(x + 1, y + 1, z, MAP_LOOKUP[13]));
+                    positions.push(get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[14]));
+                    positions.push(get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[14]));
+                    positions.push(get_other_index(x + 1, y, z + 1, MAP_LOOKUP[15]));
+                    positions.push(get_other_index(x + 1, y, z, MAP_LOOKUP[12]));
                 }
                 if faces[yp] > 0 {
                     // U
-                    positions.push(get_other_index(x, y + 1, z, 2));
-                    positions.push(get_other_index(x, y + 1, z + 1, 1));
-                    positions.push(get_other_index(x + 1, y + 1, z + 1, 1));
-                    positions.push(get_other_index(x + 1, y + 1, z + 1, 1));
-                    positions.push(get_other_index(x + 1, y + 1, z, 2));
-                    positions.push(get_other_index(x, y + 1, z, 2));
+                    positions.push(get_other_index(x, y + 1, z, MAP_LOOKUP[16]));
+                    positions.push(get_other_index(x, y + 1, z + 1, MAP_LOOKUP[17]));
+                    positions.push(get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[18]));
+                    positions.push(get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[18]));
+                    positions.push(get_other_index(x + 1, y + 1, z, MAP_LOOKUP[19]));
+                    positions.push(get_other_index(x, y + 1, z, MAP_LOOKUP[16]));
                 }
                 if faces[zp] > 0 {
                     // F
-                    positions.push(get_other_index(x, y, z + 1, 2));
-                    positions.push(get_other_index(x + 1, y, z + 1, 2));
-                    positions.push(get_other_index(x + 1, y + 1, z + 1, 2));
-                    positions.push(get_other_index(x + 1, y + 1, z + 1, 2));
-                    positions.push(get_other_index(x, y + 1, z + 1, 2));
-                    positions.push(get_other_index(x, y, z + 1, 2));
+                    positions.push(get_other_index(x, y, z + 1, MAP_LOOKUP[20]));
+                    positions.push(get_other_index(x + 1, y, z + 1, MAP_LOOKUP[21]));
+                    positions.push(get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[22]));
+                    positions.push(get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[22]));
+                    positions.push(get_other_index(x, y + 1, z + 1, MAP_LOOKUP[23]));
+                    positions.push(get_other_index(x, y, z + 1, MAP_LOOKUP[20]));
                 }
             }
         }
@@ -347,168 +351,186 @@ pub fn calc_colors(data_raw: &[u8]) -> Vec<f32> {
         }
     }
     let mut colors: Vec<f32> =
-        vec![0.0; (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * 3 * 4];
+        vec![0.0; (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * 4 * 4];
     index_raw = 0;
     for x in 0..CHUNK_SIZE {
         for y in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
                 let value;
                 if data_raw[index_raw] == 0 {
-                    value = 0;
+                    index_raw += 1;
+                    continue;
                 } else {
                     value = (data_raw[index_raw] - 1) as usize;
                 }
-                // L
-                add_color(
-                    COLOR_LOOKUP[value][LEFT],
-                    &mut colors,
-                    get_other_index(x, y, z, 0),
-                    0.0,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][LEFT],
-                    &mut colors,
-                    get_other_index(x, y, z + 1, 0),
-                    0.05,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][LEFT],
-                    &mut colors,
-                    get_other_index(x, y + 1, z + 1, 0),
-                    -0.03,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][LEFT],
-                    &mut colors,
-                    get_other_index(x, y + 1, z + 1, 0),
-                    -0.8,
-                );
-                // D
-                add_color(
-                    COLOR_LOOKUP[value][BOTTOM],
-                    &mut colors,
-                    get_other_index(x, y, z, 1),
-                    0.0,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][BOTTOM],
-                    &mut colors,
-                    get_other_index(x + 1, y, z, 0),
-                    0.05,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][BOTTOM],
-                    &mut colors,
-                    get_other_index(x + 1, y, z + 1, 0),
-                    -0.03,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][BOTTOM],
-                    &mut colors,
-                    get_other_index(x, y, z + 1, 1),
-                    -0.8,
-                );
-                // B
-                add_color(
-                    COLOR_LOOKUP[value][BACK],
-                    &mut colors,
-                    get_other_index(x, y, z, 2),
-                    0.0,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][BACK],
-                    &mut colors,
-                    get_other_index(x, y + 1, z, 1),
-                    0.05,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][BACK],
-                    &mut colors,
-                    get_other_index(x + 1, y + 1, z, 0),
-                    -0.03,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][BACK],
-                    &mut colors,
-                    get_other_index(x + 1, y, z, 1),
-                    -0.8,
-                );
-                // R
-                add_color(
-                    COLOR_LOOKUP[value][RIGHT],
-                    &mut colors,
-                    get_other_index(x + 1, y, z, 2),
-                    0.0,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][RIGHT],
-                    &mut colors,
-                    get_other_index(x + 1, y + 1, z, 1),
-                    0.05,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][RIGHT],
-                    &mut colors,
-                    get_other_index(x + 1, y + 1, z + 1, 0),
-                    -0.03,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][RIGHT],
-                    &mut colors,
-                    get_other_index(x + 1, y, z + 1, 1),
-                    -0.8,
-                );
-                // U
-                add_color(
-                    COLOR_LOOKUP[value][TOP],
-                    &mut colors,
-                    get_other_index(x, y + 1, z, 2),
-                    0.0,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][TOP],
-                    &mut colors,
-                    get_other_index(x, y + 1, z + 1, 1),
-                    0.05,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][TOP],
-                    &mut colors,
-                    get_other_index(x + 1, y + 1, z + 1, 1),
-                    -0.03,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][TOP],
-                    &mut colors,
-                    get_other_index(x + 1, y + 1, z, 2),
-                    -0.8,
-                );
-                // F
-                add_color(
-                    COLOR_LOOKUP[value][FRONT],
-                    &mut colors,
-                    get_other_index(x, y, z + 1, 2),
-                    0.0,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][FRONT],
-                    &mut colors,
-                    get_other_index(x + 1, y, z + 1, 2),
-                    0.05,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][FRONT],
-                    &mut colors,
-                    get_other_index(x + 1, y + 1, z + 1, 2),
-                    -0.03,
-                );
-                add_color(
-                    COLOR_LOOKUP[value][FRONT],
-                    &mut colors,
-                    get_other_index(x, y + 1, z + 1, 2),
-                    -0.8,
-                );
-
+                let xn = get_index(0, x, y, z);
+                let yn = xn + 1;
+                let zn = xn + 2;
+                let xp = xn + 3;
+                let yp = xn + 4;
+                let zp = xn + 5;
+                if faces[xn] > 0 {
+                    // L
+                    add_color(
+                        COLOR_LOOKUP[value][LEFT],
+                        &mut colors,
+                        get_other_index(x, y, z, MAP_LOOKUP[0]),
+                        0.0,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][LEFT],
+                        &mut colors,
+                        get_other_index(x, y, z + 1, MAP_LOOKUP[1]),
+                        0.05,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][LEFT],
+                        &mut colors,
+                        get_other_index(x, y + 1, z + 1, MAP_LOOKUP[2]),
+                        -0.03,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][LEFT],
+                        &mut colors,
+                        get_other_index(x, y + 1, z, MAP_LOOKUP[3]),
+                        -0.08,
+                    );
+                }
+                if faces[yn] > 0 {
+                    // D
+                    add_color(
+                        COLOR_LOOKUP[value][BOTTOM],
+                        &mut colors,
+                        get_other_index(x, y, z, MAP_LOOKUP[4]),
+                        0.0,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][BOTTOM],
+                        &mut colors,
+                        get_other_index(x + 1, y, z, MAP_LOOKUP[5]),
+                        0.05,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][BOTTOM],
+                        &mut colors,
+                        get_other_index(x + 1, y, z + 1, MAP_LOOKUP[6]),
+                        -0.03,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][BOTTOM],
+                        &mut colors,
+                        get_other_index(x, y, z + 1, MAP_LOOKUP[7]),
+                        -0.08,
+                    );
+                }
+                if faces[zn] > 0 {
+                    // B
+                    add_color(
+                        COLOR_LOOKUP[value][BACK],
+                        &mut colors,
+                        get_other_index(x, y, z, MAP_LOOKUP[8]),
+                        0.0,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][BACK],
+                        &mut colors,
+                        get_other_index(x, y + 1, z, MAP_LOOKUP[9]),
+                        0.05,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][BACK],
+                        &mut colors,
+                        get_other_index(x + 1, y + 1, z, MAP_LOOKUP[10]),
+                        -0.03,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][BACK],
+                        &mut colors,
+                        get_other_index(x + 1, y, z, MAP_LOOKUP[11]),
+                        -0.08,
+                    );
+                }
+                if faces[xp] > 0 {
+                    // R
+                    add_color(
+                        COLOR_LOOKUP[value][RIGHT],
+                        &mut colors,
+                        get_other_index(x + 1, y, z, MAP_LOOKUP[12]),
+                        0.0,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][RIGHT],
+                        &mut colors,
+                        get_other_index(x + 1, y + 1, z, MAP_LOOKUP[13]),
+                        0.05,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][RIGHT],
+                        &mut colors,
+                        get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[14]),
+                        -0.03,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][RIGHT],
+                        &mut colors,
+                        get_other_index(x + 1, y, z + 1, MAP_LOOKUP[15]),
+                        -0.08,
+                    );
+                }
+                if faces[yp] > 0 {
+                    // U
+                    add_color(
+                        COLOR_LOOKUP[value][TOP],
+                        &mut colors,
+                        get_other_index(x, y + 1, z, MAP_LOOKUP[16]),
+                        0.0,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][TOP],
+                        &mut colors,
+                        get_other_index(x, y + 1, z + 1, MAP_LOOKUP[17]),
+                        0.05,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][TOP],
+                        &mut colors,
+                        get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[18]),
+                        -0.03,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][TOP],
+                        &mut colors,
+                        get_other_index(x + 1, y + 1, z, MAP_LOOKUP[19]),
+                        -0.08,
+                    );
+                }
+                if faces[zp] > 0 {
+                    // F
+                    add_color(
+                        COLOR_LOOKUP[value][FRONT],
+                        &mut colors,
+                        get_other_index(x, y, z + 1, MAP_LOOKUP[20]),
+                        0.0,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][FRONT],
+                        &mut colors,
+                        get_other_index(x + 1, y, z + 1, MAP_LOOKUP[21]),
+                        0.05,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][FRONT],
+                        &mut colors,
+                        get_other_index(x + 1, y + 1, z + 1, MAP_LOOKUP[22]),
+                        -0.03,
+                    );
+                    add_color(
+                        COLOR_LOOKUP[value][FRONT],
+                        &mut colors,
+                        get_other_index(x, y + 1, z + 1, MAP_LOOKUP[23]),
+                        -0.08,
+                    );
+                }
                 index_raw += 1;
             }
         }
