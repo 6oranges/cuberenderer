@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	fs := http.FileServer(http.Dir("./"))
+	fs := http.FileServer(http.Dir("./www"))
 	http.Handle("/", fs)
 	port := "3001"
 	if len(os.Args) > 1 {
