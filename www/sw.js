@@ -1,5 +1,5 @@
 "use strict"
-const version = '0.0.5';
+const version = '0.0.8';
 const appCache = location.pathname.split("/").slice(1, -1).join("/") + "#"; // Unique across origin (Current Path)
 const versionedCache = appCache + version; // Unique across versions
 const sharedCache = appCache + "shared"

@@ -1,4 +1,4 @@
-import init, { calc_colors, compress } from "./rust-rendering/rendering.js";
+import init, { calc_colors, compress, start } from "./rust-rendering/rendering.js";
 /*init().then(() => {
 	let arr = new Uint8Array(8);
 	arr[0] = 1
@@ -85,7 +85,7 @@ function main() {
 		alert('Unable to initialize WebGL. Your browser or machine may not support it.');
 		return;
 	}
-
+	var ext = gl.getExtension('OES_element_index_uint');
 	// Vertex shader program
 
 	const vsSource = `
@@ -245,7 +245,7 @@ function initBuffers(gl) {
 	for (let x = 0; x < CHUNKSIZE + 1; x++) {
 		for (let y = 0; y < CHUNKSIZE + 1; y++) {
 			for (let z = 0; z < CHUNKSIZE + 1; z++) {
-				for (let c = 0; c < 4; c++) {
+				for (let c = 0; c < 24; c++) {
 					positions.push(-CHUNKSIZED2 - .5 + x)
 					positions.push(-CHUNKSIZED2 - .5 + y)
 					positions.push(-CHUNKSIZED2 - .5 + z)
@@ -462,14 +462,14 @@ function cameraMatrices(gl, projectionMatrix) {
 	const fieldOfView = 45 * Math.PI / 180; // in radians
 	const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
 	const zNear = 0.1;
-	const zFar = 100.0;
+	const zFar = 1000.0;
 	glMatrix.mat4.perspective(projectionMatrix,
 		fieldOfView,
 		aspect,
 		zNear,
 		zFar);
 }
-const CHUNKSIZE = 14;
+const CHUNKSIZE = 16;
 const CHUNKSIZED2 = Math.floor(CHUNKSIZE / 2);
 class Chunk {
 	constructor(x = 0, y = 0, z = 0) {
@@ -502,6 +502,9 @@ class Chunk {
 		}*/
 	}
 	updateBuffer() {
+		if (this.empty || this.data.length < CHUNKSIZE * CHUNKSIZE * CHUNKSIZE) {
+			return;
+		}
 		const gl = GlobalGL;
 		// Build the element array buffer; this specifies the indices
 		// into the vertex arrays for each face's vertices.
@@ -519,7 +522,7 @@ class Chunk {
 		// Now send the element array to GL
 
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER,
-			new Uint16Array(indices), gl.STATIC_DRAW);
+			new Uint32Array(indices), gl.STATIC_DRAW);
 
 
 
@@ -531,6 +534,9 @@ class Chunk {
 		gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
 	}
 	draw(gl, programInfo, cameraMatrix, buffers) {
+		if (this.empty || this.verts < 2) {
+			return;
+		}
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.cachedBuffer);
 		const modelViewMatrix = glMatrix.mat4.create();
 		glMatrix.mat4.multiply(modelViewMatrix, cameraMatrix, this.posmatrix);
@@ -554,9 +560,10 @@ class Chunk {
 		gl.uniformMatrix4fv(
 			programInfo.uniformLocations.modelViewMatrix,
 			false,
-			modelViewMatrix); {
+			modelViewMatrix);
+		{
 			const vertexCount = this.verts;
-			const type = gl.UNSIGNED_SHORT;
+			const type = gl.UNSIGNED_INT;
 			const offset = 0;
 			gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
 		}
@@ -731,15 +738,22 @@ function perlin(x, y) {
 //
 const cam = {
 	x: 0,
-	y: 0,
-	z: 10,
+	y: 10,
+	z: 0,
 	dx: 0,
 	dy: 0,
 	dz: 0,
 	xzrot: 0,
 	yzrot: 0
 };
-
+function min(x, y) {
+	if (x < y) {
+		return x;
+	}
+	else {
+		return y;
+	}
+}
 const myChunk = new Chunk(0, 0, 0);
 const world = new Chunks((chunk, x, y, z) => {
 	world.setBlock(0, 0, 0, 1, false);
@@ -754,7 +768,7 @@ const world = new Chunks((chunk, x, y, z) => {
 			for (let j = -CHUNKSIZED2; j < Math.ceil(CHUNKSIZE / 2); j++) {
 				const height = Math.floor(perlin((i + x * CHUNKSIZE) * .01, (j + z * CHUNKSIZE) * .01) * 64 + perlin((i + x * CHUNKSIZE) * .1, (j + z * CHUNKSIZE) * .1) * 7 + 8);
 				//world.setBlock(i + x * CHUNKSIZE, height - 3 + y * CHUNKSIZE, j + z * CHUNKSIZE, 9, false);
-				for (let k = height - 2; k < height; k++) {
+				for (let k = height - 4; k < height; k++) {
 					world.setBlock(i + x * CHUNKSIZE, k + y * CHUNKSIZE, j + z * CHUNKSIZE, 2, false);
 					//chunk.data[j + i*CHUNKSIZE*CHUNKSIZE+k*CHUNKSIZE]=2; // Stone
 				}
@@ -832,7 +846,7 @@ function colliding() {
 		world.getBlock(cam.x, cam.y, cam.z)
 	)
 	cam.y += 1;
-	return false;//m > 0;
+	return m > 0;
 }
 function placeBlock() {
 	let x, y, z, dx, dy, dz;
@@ -847,7 +861,7 @@ function placeBlock() {
 	dx *= .01;
 	dy *= .01;
 	dz *= .01;
-	for (let i = 0; i < 10000; i++) {
+	for (let i = 0; i < 1000; i++) {
 		x += dx;
 		y += dy;
 		z += dz;
@@ -864,6 +878,12 @@ function placeBlock() {
 			return;
 		}
 	}
+	if (false) {
+		x -= dx * 200;
+		y -= dy * 200;
+		z -= dz * 200;
+		world.setBlock(x, y, z, currentBlock);
+	}
 
 }
 function destroyBlock() {
@@ -879,7 +899,7 @@ function destroyBlock() {
 	dx *= .01;
 	dy *= .01;
 	dz *= .01;
-	for (let i = 0; i < 10000; i++) {
+	for (let i = 0; i < 1000; i++) {
 		x += dx;
 		y += dy;
 		z += dz;
@@ -902,7 +922,7 @@ function getBlock() {
 	dx *= .01;
 	dy *= .01;
 	dz *= .01;
-	for (let i = 0; i < 10000; i++) {
+	for (let i = 0; i < 1000; i++) {
 		x += dx;
 		y += dy;
 		z += dz;
@@ -991,9 +1011,9 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
 	howtodraw(gl, programInfo, buffers, projectionMatrix,);
 	world.removePlayerTickets();
-	for (let x = -4; x < 5; x++) {
-		for (let y = -4; y < 5; y++) {
-			for (let z = -4; z < 5; z++) {
+	for (let x = -3; x < 4; x++) {
+		for (let y = -3; y < 4; y++) {
+			for (let z = -3; z < 4; z++) {
 				const chunk = world.getBlockChunk(cam.x + x * CHUNKSIZE, cam.y + y * CHUNKSIZE, cam.z + z * CHUNKSIZE);
 				chunk.draw(gl, programInfo, cameraMatrix, buffers);
 				chunk.playerTicket = true;
@@ -1311,5 +1331,6 @@ init().then(() => {
 	const arr = new Uint8Array(CHUNKSIZE * CHUNKSIZE * CHUNKSIZE);
 	arr[0] = 1;
 	console.log(calc_colors(arr));
+	start();
 	main();
 })

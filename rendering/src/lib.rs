@@ -1,12 +1,28 @@
 use wasm_bindgen::prelude::*;
+extern crate console_error_panic_hook;
+use std::panic;
+
+pub fn set_panic_hook() {
+    // When the `console_error_panic_hook` feature is enabled, we can call the
+    // `set_panic_hook` function at least once during initialization, and then
+    // we will get better error messages if our code ever panics.
+    //
+    // For more details see
+    // https://github.com/rustwasm/console_error_panic_hook#readme
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+}
 #[wasm_bindgen]
 extern "C" {
     pub fn alert(s: &str);
 }
-const CHUNK_SIZE: usize = 14;
+const CHUNK_SIZE: usize = 16;
 #[wasm_bindgen]
 pub fn greet(name: &str) {
     alert(&format!("Hello, {}!", name));
+}
+#[wasm_bindgen]
+pub fn start() {
+    set_panic_hook();
 }
 // Compress for size but alas doesn't remember which cube each face belongs to, no culling back faces
 // Side is 0:-x  1:-y  2:-z
@@ -45,8 +61,9 @@ const TOP: usize = 2;
 const BOTTOM: usize = 3;
 const RIGHT: usize = 4;
 const LEFT: usize = 5;
+const MAP_BUCKETS: usize = 24;
 const MAP_LOOKUP: [usize; 24] = [
-    2, 2, 2, 1, 1, 2, 1, 0, 0, 0, 1, 1, 0, 0, 0, 0, 2, 0, 3, 3, 1, 2, 2, 1,
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23,
 ];
 
 // Front Back Top Bottom Right Left
@@ -177,8 +194,9 @@ const COLOR_LOOKUP: [[[f32; 4]; 6]; 9] = [
 pub fn get_index(side: usize, x: usize, y: usize, z: usize) -> usize {
     return (CHUNK_SIZE * CHUNK_SIZE * x + CHUNK_SIZE * y + z) * 6 + side;
 }
-pub fn get_other_index(x: usize, y: usize, z: usize, c: usize) -> u16 {
-    return ((((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * x + (CHUNK_SIZE + 1) * y + z) * 4) + c) as u16;
+pub fn get_other_index(x: usize, y: usize, z: usize, c: usize) -> u32 {
+    return ((((CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * x + (CHUNK_SIZE + 1) * y + z) * MAP_BUCKETS)
+        + c) as u32;
 }
 // Side is 0:-x  1:-y  2:-z
 pub fn find(
@@ -242,7 +260,7 @@ pub fn find(
     };
 }
 #[wasm_bindgen]
-pub fn compress(data_raw: &[u8]) -> Vec<u16> {
+pub fn compress(data_raw: &[u8]) -> Vec<u32> {
     let mut faces: Vec<u8> = vec![0; CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE * 6];
     let mut index_raw: usize = 0;
     for x in 0..CHUNK_SIZE {
@@ -258,7 +276,7 @@ pub fn compress(data_raw: &[u8]) -> Vec<u16> {
             }
         }
     }
-    let mut positions: Vec<u16> = vec![];
+    let mut positions: Vec<u32> = vec![];
     for x in 0..CHUNK_SIZE {
         for y in 0..CHUNK_SIZE {
             for z in 0..CHUNK_SIZE {
@@ -327,7 +345,7 @@ pub fn compress(data_raw: &[u8]) -> Vec<u16> {
     }
     return positions;
 }
-pub fn add_color(face: [f32; 4], colors: &mut Vec<f32>, start: u16, offset: f32) {
+pub fn add_color(face: [f32; 4], colors: &mut Vec<f32>, start: u32, offset: f32) {
     for i in 0..3 {
         colors[(start * 4) as usize + i] = face[i] + offset;
     }
@@ -351,7 +369,7 @@ pub fn calc_colors(data_raw: &[u8]) -> Vec<f32> {
         }
     }
     let mut colors: Vec<f32> =
-        vec![0.0; (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * 4 * 4];
+        vec![0.0; (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * (CHUNK_SIZE + 1) * MAP_BUCKETS * 4];
     index_raw = 0;
     for x in 0..CHUNK_SIZE {
         for y in 0..CHUNK_SIZE {
