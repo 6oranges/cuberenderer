@@ -458,7 +458,7 @@ function displayFrameRate(gl) {
 	const mynow = new Date().getTime();
 	if (displayFrameRate.mythen + 1000 <= mynow) {
 		displayFrameRate.mythen = mynow;
-		displayFrameRate.element.innerText = "2  " + displayFrameRate.frames + " (" + Math.round(cam.x) + "," + Math.round(cam.y) + "," + Math.round(cam.z) + ") " + setCounter;
+		displayFrameRate.element.innerText = "3  " + displayFrameRate.frames + " (" + Math.round(cam.x) + "," + Math.round(cam.y) + "," + Math.round(cam.z) + ") " + setCounter;
 		displayFrameRate.frames = 0;
 	}
 	displayFrameRate.frames += 1;
@@ -474,6 +474,59 @@ function cameraMatrices(gl, projectionMatrix) {
 		aspect,
 		zNear,
 		zFar);
+}
+var db;
+{
+	var request = window.indexedDB.open("cubes", 1);
+
+	request.onerror = function (event) {
+		console.log("error: ");
+	};
+
+	request.onsuccess = function (event) {
+		db = request.result;
+		console.log("success: " + db);
+	};
+
+	request.onupgradeneeded = function (event) {
+		var db = event.target.result;
+		db.createObjectStore("chunks", { keyPath: "xyz" });
+	}
+}
+
+
+function read(identifier) {
+	return new Promise((resolve, reject) => {
+		var transaction = db.transaction(["chunks"]);
+		var objectStore = transaction.objectStore("chunks");
+		var request = objectStore.get(identifier);
+
+		request.onerror = function (event) {
+			alert("Unable to retrieve daa from database!");
+			reject();
+		};
+
+		request.onsuccess = function (event) {
+			// Do something with the request.result!
+			if (request.result) {
+				resolve(request.result);
+			} else {
+				reject();
+			}
+		};
+	})
+}
+
+function add(identifier, data) {
+	var request = db.transaction(["chunks"], "readwrite")
+		.objectStore("chunks")
+		.put({ xyz: identifier, data: data });
+
+	request.onsuccess = function (event) {
+	};
+
+	request.onerror = function (event) {
+	}
 }
 const CHUNKSIZE = 16;
 const CHUNKSIZED2 = Math.floor(CHUNKSIZE / 2);
@@ -606,7 +659,7 @@ class Chunks {
 			if (c.dirty) {
 				c.updateBuffer();
 				const identifier = Math.round(c.x / CHUNKSIZE) + "," + Math.round(c.y / CHUNKSIZE) + "," + Math.round(c.z / CHUNKSIZE);
-				localStorage.setItem(identifier, c.data);
+				add(identifier, c.data);
 				c.dirty = false;
 			}
 			if (c.generated && !c.playerTicket) {
@@ -624,7 +677,7 @@ class Chunks {
 			const chunk = new Chunk(x, y, z);
 			const identifier = x + "," + y + "," + z;
 			this.loadedChunks[identifier] = chunk;
-			this.generater.postMessage([x, y, z]);
+			this.generater.postMessage([x, y, z, identifier]);
 			return chunk
 		}
 	}
@@ -950,6 +1003,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 			spaceLast = now;
 		}
 	}
+	/*
 	if (newkeys.has("KeyL")) {
 		upload().then((d) => {
 			localStorage.clear()
@@ -1018,7 +1072,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
 		}
 		downloadFile(data, "world.json");
-	}
+	}*/
 	if (newkeys.has("KeyR")) {
 		rapid = !rapid;
 	}

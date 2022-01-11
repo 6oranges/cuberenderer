@@ -90,11 +90,56 @@ function generate(x, y, z) {
 	}
 	return [data, empty];
 }
-onmessage = function (e) {
+
+var resolvedb;
+var db = new Promise((resolve, reject) => {
+	resolvedb = resolve;
+});
+{
+	var request = indexedDB.open("cubes", 1);
+
+	request.onerror = function (event) {
+		console.log("error: ");
+	};
+
+	request.onsuccess = async function (event) {
+		resolvedb(request.result);
+		console.log("success: " + await db);
+	};
+
+	request.onupgradeneeded = function (event) {
+		var db = event.target.result;
+		db.createObjectStore("chunks", { keyPath: "xyz" });
+	}
+}
+
+
+async function read(identifier) {
+	return new Promise(async (resolve, reject) => {
+		var transaction = (await db).transaction(["chunks"]);
+		var objectStore = transaction.objectStore("chunks");
+		var request = objectStore.get(identifier);
+
+		request.onerror = function (event) {
+			console.log("Unable to retrieve daa from database!");
+			resolve(null);
+		};
+
+		request.onsuccess = function (event) {
+			// Do something with the request.result!
+			if (request.result) {
+				resolve(request.result);
+			} else {
+				resolve(null);
+			}
+		};
+	})
+}
+onmessage = async function (e) {
 	var workerResult = { x: e.data[0], y: e.data[1], z: e.data[2] };
-	const ret = false;//localStorage.getItem(identifier);
+	const ret = await read(e.data[3]);
 	if (ret) {
-		workerResult.data = new Uint8Array(ret.split(","));
+		workerResult.data = ret.data;
 	} else {
 		const x = generate(e.data[0], e.data[1], e.data[2]);
 		workerResult.data = x[0];
