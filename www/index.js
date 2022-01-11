@@ -482,7 +482,6 @@ class Chunk {
 		this.x = x * CHUNKSIZE;
 		this.y = y * CHUNKSIZE;
 		this.z = z * CHUNKSIZE;
-		this.data = new Uint8Array(CHUNKSIZE * CHUNKSIZE * CHUNKSIZE);
 		this.dirty = false;
 		this.empty = true;
 		this.generated = false;
@@ -577,10 +576,24 @@ class Chunk {
 
 }
 class Chunks {
-	constructor(generatorFunction = (x = 0, y = 0, z = 0) => new Chunk(x, y, z)) {
+	constructor() {
 		this.loadedChunks = {};
-		this.generatorFunction = generatorFunction;
-		this.recurse = 0
+		this.recurse = 0;
+		this.generater = new Worker('background.js');
+		this.generater.onmessage = (e) => {
+			requestIdleCallback(() => {
+				const identifier = e.data.x + "," + e.data.y + "," + e.data.z;
+				this.loadedChunks[identifier].generated = true;
+				this.loadedChunks[identifier].data = e.data.data;
+				if (!e.data.empty) {
+					this.loadedChunks[identifier].empty = false;
+					this.loadedChunks[identifier].updateBuffer();
+				}
+
+			})
+
+
+		}
 	}
 	removePlayerTickets() {
 		for (let chunk of Object.keys(this.loadedChunks)) {
@@ -592,12 +605,11 @@ class Chunks {
 			const c = this.loadedChunks[chunk];
 			if (c.dirty) {
 				c.updateBuffer();
-				const ch = this.loadedChunks[chunk]
-				const identifier = Math.round(ch.x / CHUNKSIZE) + "," + Math.round(ch.y / CHUNKSIZE) + "," + Math.round(ch.z / CHUNKSIZE);
-				localStorage.setItem(identifier, ch.data);
-				ch.dirty = false;
+				const identifier = Math.round(c.x / CHUNKSIZE) + "," + Math.round(c.y / CHUNKSIZE) + "," + Math.round(c.z / CHUNKSIZE);
+				localStorage.setItem(identifier, c.data);
+				c.dirty = false;
 			}
-			if (c.playerTicket === false) {
+			if (c.generated && !c.playerTicket) {
 				delete this.loadedChunks[chunk];
 			}
 		}
@@ -612,22 +624,7 @@ class Chunks {
 			const chunk = new Chunk(x, y, z);
 			const identifier = x + "," + y + "," + z;
 			this.loadedChunks[identifier] = chunk;
-			if (this.recurse < 64) {
-				this.recurse += 1
-				const ret = localStorage.getItem(identifier);
-				if (ret) {
-					chunk.data = new Uint8Array(ret.split(","));
-					chunk.empty = false;
-				} else {
-					this.generatorFunction(chunk, x, 0, z);
-				}
-				chunk.generated = true;
-				chunk.updateBuffer();
-				this.recurse -= 1
-			}
-			else {
-				console.log("NOOOOOO")
-			}
+			this.generater.postMessage([x, y, z]);
 			return chunk
 		}
 	}
@@ -654,90 +651,25 @@ class Chunks {
 		y = Math.round(y);
 		z = Math.round(z);
 		const chunk = this.getBlockChunk(x, y, z);
-		return chunk.data[this.getBlockIndex(x, y, z)];
+		if (chunk.generated) {
+			return chunk.data[this.getBlockIndex(x, y, z)];
+		} else {
+			return 9;
+		}
 	}
-	setBlock(x = 0, y = 0, z = 0, value = 0, dirty = true) {
+	setBlock(x = 0, y = 0, z = 0, value = 0) {
 		setCounter += 1
 		x = Math.round(x);
 		y = Math.round(y);
 		z = Math.round(z);
-		if (!dirty) {
-			let loaded = this.getChunkLoaded(Math.round(x / CHUNKSIZE), Math.round(y / CHUNKSIZE), Math.round(z / CHUNKSIZE))
-			if (loaded && loaded.generated) {
-				return;
-			}
-		}
 		const chunk = this.getBlockChunk(x, y, z);
-		chunk.dirty = dirty;
+		if (!chunk.generated) {
+			return;
+		}
+		chunk.dirty = true;
 		chunk.empty = false;
 		chunk.data[this.getBlockIndex(x, y, z)] = value;
 	}
-}
-/* Function to linearly interpolate between a0 and a1
- * Weight w should be in the range [0.0, 1.0]
- */
-function interpolate(a0, a1, w) {
-	/* // You may want clamping by inserting:
-	 * if (0.0 > w) return a0;
-	 * if (1.0 < w) return a1;
-	 */
-	//return (a1 - a0) * w + a0;
-	/* // Use this cubic interpolation [[Smoothstep]] instead, for a smooth appearance:
-	 * return (a1 - a0) * (3.0 - w * 2.0) * w * w + a0;
-	 *
-	 * // Use [[Smootherstep]] for an even smoother result with a second derivative equal to zero on boundaries:
-	 */
-	return (a1 - a0) * ((w * (w * 6.0 - 15.0) + 10.0) * w * w * w) + a0;
-
-}
-
-/* Create random direction vector
- */
-function randomGradient(ix, iy) {
-	// Random float. No precomputed gradients mean this works for any number of grid coordinates
-	const random = 2920 * Math.sin(ix * 21942 + iy * 171324 + 8912) * Math.cos(ix * 23157 * iy * 217832 + 9758);
-	return { x: Math.cos(random), y: Math.sin(random) };
-}
-
-// Computes the dot product of the distance and gradient vectors.
-function dotGridGradient(ix, iy, x, y) {
-	// Get gradient from integer coordinates
-	const gradient = randomGradient(ix, iy);
-
-	// Compute the distance vector
-	const dx = x - ix;
-	const dy = y - iy;
-
-	// Compute the dot-product
-	return (dx * gradient.x + dy * gradient.y);
-}
-
-// Compute Perlin noise at coordinates x, y
-function perlin(x, y) {
-	// Determine grid cell coordinates
-	const x0 = Math.floor(x);
-	const x1 = x0 + 1;
-	const y0 = Math.floor(y);
-	const y1 = y0 + 1;
-
-	// Determine interpolation weights
-	// Could also use higher order polynomial/s-curve here
-	const sx = x - x0;
-	const sy = y - y0;
-
-	// Interpolate between grid point gradients
-	let n0, n1, ix0, ix1, value;
-
-	n0 = dotGridGradient(x0, y0, x, y);
-	n1 = dotGridGradient(x1, y0, x, y);
-	ix0 = interpolate(n0, n1, sx);
-
-	n0 = dotGridGradient(x0, y1, x, y);
-	n1 = dotGridGradient(x1, y1, x, y);
-	ix1 = interpolate(n0, n1, sx);
-
-	value = interpolate(ix0, ix1, sy);
-	return value;
 }
 // 
 // Draw the scene.
@@ -752,72 +684,7 @@ const cam = {
 	xzrot: 0,
 	yzrot: 0
 };
-function min(x, y) {
-	if (x < y) {
-		return x;
-	}
-	else {
-		return y;
-	}
-}
-const myChunk = new Chunk(0, 0, 0);
-const world = new Chunks((chunk, x, y, z) => {
-	world.setBlock(0, 0, 0, 1, false);
-	//world.setBlock(0, 1, 0, 2, false);
-	//world.setBlock(0, 2, 0, 3, false);
-	//world.setBlock(0, 3, 0, 4, false);
-	//world.setBlock(0, 4, 0, 5, false);
-	if (true && y == 0) {
-		chunk.empty = false;
-		// Ground layer
-		for (let i = -CHUNKSIZED2; i < Math.ceil(CHUNKSIZE / 2); i++) {
-			for (let j = -CHUNKSIZED2; j < Math.ceil(CHUNKSIZE / 2); j++) {
-				const height = Math.floor(perlin((i + x * CHUNKSIZE) * .01, (j + z * CHUNKSIZE) * .01) * 64 + perlin((i + x * CHUNKSIZE) * .1, (j + z * CHUNKSIZE) * .1) * 7 + 8);
-				//world.setBlock(i + x * CHUNKSIZE, height - 3 + y * CHUNKSIZE, j + z * CHUNKSIZE, 9, false);
-				for (let k = height - 4; k < height; k++) {
-					world.setBlock(i + x * CHUNKSIZE, k + y * CHUNKSIZE, j + z * CHUNKSIZE, 2, false);
-					//chunk.data[j + i*CHUNKSIZE*CHUNKSIZE+k*CHUNKSIZE]=2; // Stone
-				}
-				world.setBlock(i + x * CHUNKSIZE, height + y * CHUNKSIZE, j + z * CHUNKSIZE, 1, false);
-				//chunk.data[j + i*CHUNKSIZE*CHUNKSIZE+height*CHUNKSIZE]=1; // Grass
-				if (i > 2 - CHUNKSIZED2 && j > 2 - CHUNKSIZED2 && i < Math.ceil(CHUNKSIZE / 2) - 2 && j < Math.ceil(CHUNKSIZE / 2) - 2 && (height % CHUNKSIZE + CHUNKSIZE) % CHUNKSIZE < 1) {
-					if (Math.random() < .01) {
-						for (let k = height + 3; k < height + 7; k++) {
-							for (let a = -1; a < 2; a++) {
-								for (let b = -1; b < 2; b++) {
-									world.setBlock(i + b + x * CHUNKSIZE, k + y * CHUNKSIZE, j + a + z * CHUNKSIZE, 4, false);
-									//chunk.data[(j+a) + (i+b)*CHUNKSIZE*CHUNKSIZE+k*CHUNKSIZE]=4; // Leaves
-								}
-							}
-						}
-						for (let k = height + 3; k < height + 5; k++) {
-							for (let a = -2; a < 3; a++) {
-								for (let b = -1; b < 2; b++) {
-									world.setBlock(i + b + x * CHUNKSIZE, k + y * CHUNKSIZE, j + a + z * CHUNKSIZE, 4, false);
-									//chunk.data[(j+a) + (i+b)*CHUNKSIZE*CHUNKSIZE+k*CHUNKSIZE]=4; // Leaves
-								}
-							}
-							for (let a = -1; a < 2; a++) {
-								for (let b = -2; b < 3; b++) {
-									world.setBlock(i + b + x * CHUNKSIZE, k + y * CHUNKSIZE, j + a + z * CHUNKSIZE, 4, false);
-									//chunk.data[(j+a) + (i+b)*CHUNKSIZE*CHUNKSIZE+k*CHUNKSIZE]=4; // Leaves
-								}
-							}
-						}
-						for (let k = height + 1; k < height + 6; k++) {
-							world.setBlock(i + x * CHUNKSIZE, k + y * CHUNKSIZE, j + z * CHUNKSIZE, 3, false);
-							//chunk.data[j + i*CHUNKSIZE*CHUNKSIZE+k*CHUNKSIZE]=3; // Logs
-						}
-					}
-				}
-			}
-		}
-	}
-
-	/*for (let i = 0;i<20;i++){
-		chunk.data[Math.floor(Math.random()*4096)]=1;
-	}*/
-});
+const world = new Chunks()
 
 const FRICTION = .50;
 const AIRFRICTION = .995;
@@ -910,7 +777,10 @@ function destroyBlock() {
 		x += dx;
 		y += dy;
 		z += dz;
-		if (world.getBlock(x, y, z) > 0 && (world.getBlock(x, y, z) != 9 || flying)) {
+		if (world.getBlock(x, y, z) == 9 && !flying) {
+			return;
+		}
+		if (world.getBlock(x, y, z) > 0) {
 			world.setBlock(x, y, z, 0);
 			return;
 		}
@@ -949,6 +819,27 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
 	adjustSize(gl);
 	clearGL(gl);
+
+	const projectionMatrix = glMatrix.mat4.create();
+	cameraMatrices(gl, projectionMatrix)
+
+	const cameraMatrix = glMatrix.mat4.create();
+	glMatrix.mat4.rotate(cameraMatrix, cameraMatrix, cam.yzrot, [1, 0, 0]);
+	glMatrix.mat4.rotate(cameraMatrix, cameraMatrix, cam.xzrot, [0, 1, 0]);
+	glMatrix.mat4.translate(cameraMatrix, cameraMatrix, [-cam.x, -cam.y, -cam.z]);
+
+	howtodraw(gl, programInfo, buffers, projectionMatrix,);
+	world.removePlayerTickets();
+	for (let x = -6; x < 6; x++) {
+		for (let y = -4; y < 4; y++) {
+			for (let z = -6; z < 6; z++) {
+				const chunk = world.getBlockChunk(cam.x + x * CHUNKSIZE, cam.y + y * CHUNKSIZE, cam.z + z * CHUNKSIZE);
+				chunk.draw(gl, programInfo, cameraMatrix, buffers);
+				chunk.playerTicket = true;
+			}
+		}
+	}
+	world.clearChunks();
 	if (keys.has("ControlLeft")) {
 		SPEED = 1;
 	}
@@ -1004,54 +895,6 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 		}
 
 	}
-
-
-
-
-	const projectionMatrix = glMatrix.mat4.create();
-	cameraMatrices(gl, projectionMatrix)
-
-	const cameraMatrix = glMatrix.mat4.create();
-	glMatrix.mat4.rotate(cameraMatrix, cameraMatrix, cam.yzrot, [1, 0, 0]);
-	glMatrix.mat4.rotate(cameraMatrix, cameraMatrix, cam.xzrot, [0, 1, 0]);
-	glMatrix.mat4.translate(cameraMatrix, cameraMatrix, [-cam.x, -cam.y, -cam.z]);
-
-	howtodraw(gl, programInfo, buffers, projectionMatrix,);
-	world.removePlayerTickets();
-	for (let x = -3; x < 4; x++) {
-		for (let y = -3; y < 4; y++) {
-			for (let z = -3; z < 4; z++) {
-				const chunk = world.getBlockChunk(/*cam.x*/ 0 + x * CHUNKSIZE, /*cam.y*/0 + y * CHUNKSIZE, /*cam.z*/0 + z * CHUNKSIZE);
-				chunk.draw(gl, programInfo, cameraMatrix, buffers);
-				chunk.playerTicket = true;
-			}
-		}
-	}
-	world.clearChunks();
-	/*useBlock(gl, programInfo, buffers, 1)
-	gl.uniformMatrix4fv(
-		programInfo.uniformLocations.modelViewMatrix,
-		false,
-		cameraMatrix); {
-		const vertexCount = 36;
-		const type = gl.UNSIGNED_SHORT;
-		const offset = 0;
-		gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
-	}
-	useBlock(gl, programInfo, buffers, 8)
-	const modelViewMatrix = glMatrix.mat4.create();
-	glMatrix.mat4.translate(modelViewMatrix, modelViewMatrix, [monsterA.x, monsterA.y, monsterA.z]);
-	glMatrix.mat4.multiply(modelViewMatrix, cameraMatrix, modelViewMatrix);
-	gl.uniformMatrix4fv(
-		programInfo.uniformLocations.modelViewMatrix,
-		false,
-		cameraMatrix); {
-		const vertexCount = 36;
-		const type = gl.UNSIGNED_SHORT;
-		const offset = 0;
-		gl.drawElements(gl.TRIANGLES, vertexCount, type, offset);
-	}*/
-
 
 	cam.x += cam.dx;
 	if (colliding()) {
