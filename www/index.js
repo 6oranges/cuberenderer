@@ -648,6 +648,37 @@ class Chunks {
 
 		}
 	}
+	assignPlayerTickets(amount, gl, programInfo, cameraMatrix, buffers) {
+		let distance = 0;
+		let assigned = 0;
+		const px = Math.round(cam.x / CHUNKSIZE);
+		const py = Math.round(cam.y / CHUNKSIZE);
+		const pz = Math.round(cam.z / CHUNKSIZE);
+		outer: while (true) {
+			for (let x = -distance; x < distance + 1; x++) {
+				for (let y = -distance; y < distance + 1; y++) {
+					for (let z = -distance; z < distance + 1; z++) {
+						const d2 = x * x + y * y + z * z;
+						if (d2 > distance * distance) {
+							continue;
+						}
+						const chunk = world.getBlockChunk(cam.x + x * CHUNKSIZE, cam.y + y * CHUNKSIZE, cam.z + z * CHUNKSIZE);
+						if (!chunk.playerTicket) {
+							chunk.playerTicket = true;
+							chunk.draw(gl, programInfo, cameraMatrix, buffers);
+							assigned += 1
+							if (assigned >= amount) {
+								break outer;
+							}
+						}
+
+					}
+				}
+			}
+			distance += 1;
+		}
+
+	}
 	removePlayerTickets() {
 		for (let chunk of Object.keys(this.loadedChunks)) {
 			this.loadedChunks[chunk].playerTicket = false;
@@ -883,15 +914,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 
 	howtodraw(gl, programInfo, buffers, projectionMatrix,);
 	world.removePlayerTickets();
-	for (let x = -6; x < 6; x++) {
-		for (let y = -4; y < 4; y++) {
-			for (let z = -6; z < 6; z++) {
-				const chunk = world.getBlockChunk(cam.x + x * CHUNKSIZE, cam.y + y * CHUNKSIZE, cam.z + z * CHUNKSIZE);
-				chunk.draw(gl, programInfo, cameraMatrix, buffers);
-				chunk.playerTicket = true;
-			}
-		}
-	}
+	world.assignPlayerTickets(1500, gl, programInfo, cameraMatrix, buffers);
 	world.clearChunks();
 	if (keys.has("ControlLeft")) {
 		SPEED = 1;
