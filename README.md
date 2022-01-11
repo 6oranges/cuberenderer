@@ -5,6 +5,8 @@ of blocks. The cube chunks are sent to rust to create the buffers(vertex&color) 
 draw them. Rust also removes the extra faces while doing this.
 The world is persistant because it is stored in localStorage api.
 
+![gameplay](Working.png?raw=true "Title")
+
 ## controls
 
 When playing the game, the keys WASD allow you to move around. Shift is down, Space is up. Double space
