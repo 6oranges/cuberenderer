@@ -21,9 +21,12 @@ import init, { calc_colors, compress, start } from "./rust-rendering/rendering.j
 const keys = new Set();
 const newkeys = new Set();
 let mouseButtons = 0;
+const track = {};
 let newMouseButtons = 0;
 let GlobalGL;
 const canvas = document.querySelector('#canvas');
+const trackcanvas = document.querySelector('#trackcanvas');
+const canvas2d = document.querySelector('#canvas2d');
 var downloadFile = (function () {
 	var a = document.createElement("a");
 	document.body.appendChild(a);
@@ -419,7 +422,6 @@ function howtodraw(gl, programInfo, buffers, projectionMatrix) {
 
 }
 function adjustSize(gl) {
-	const canvas = gl.canvas;
 	const amount = 1;
 	var displayWidth = canvas.clientWidth;
 	var displayHeight = canvas.clientHeight;
@@ -431,6 +433,10 @@ function adjustSize(gl) {
 		// Make the canvas the same size
 		canvas.width = displayWidth * amount;
 		canvas.height = displayHeight * amount;
+		trackcanvas.width = displayWidth * amount;
+		trackcanvas.height = displayHeight * amount;
+		canvas2d.width = displayWidth * amount;
+		canvas2d.height = displayHeight * amount;
 		gl.viewport(0, 0, canvas.width, canvas.height);
 	}
 }
@@ -848,6 +854,7 @@ function colliding() {
 	cam.y += 1;
 	return m > 0;
 }
+const INTERACTDISTANCE = 10000;
 function placeBlock() {
 	let x, y, z, dx, dy, dz;
 	x = cam.x;
@@ -861,7 +868,7 @@ function placeBlock() {
 	dx *= .01;
 	dy *= .01;
 	dz *= .01;
-	for (let i = 0; i < 1000; i++) {
+	for (let i = 0; i < INTERACTDISTANCE; i++) {
 		x += dx;
 		y += dy;
 		z += dz;
@@ -899,7 +906,7 @@ function destroyBlock() {
 	dx *= .01;
 	dy *= .01;
 	dz *= .01;
-	for (let i = 0; i < 1000; i++) {
+	for (let i = 0; i < INTERACTDISTANCE; i++) {
 		x += dx;
 		y += dy;
 		z += dz;
@@ -922,7 +929,7 @@ function getBlock() {
 	dx *= .01;
 	dy *= .01;
 	dz *= .01;
-	for (let i = 0; i < 1000; i++) {
+	for (let i = 0; i < INTERACTDISTANCE; i++) {
 		x += dx;
 		y += dy;
 		z += dz;
@@ -1014,7 +1021,7 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 	for (let x = -3; x < 4; x++) {
 		for (let y = -3; y < 4; y++) {
 			for (let z = -3; z < 4; z++) {
-				const chunk = world.getBlockChunk(cam.x + x * CHUNKSIZE, cam.y + y * CHUNKSIZE, cam.z + z * CHUNKSIZE);
+				const chunk = world.getBlockChunk(/*cam.x*/ 0 + x * CHUNKSIZE, /*cam.y*/0 + y * CHUNKSIZE, /*cam.z*/0 + z * CHUNKSIZE);
 				chunk.draw(gl, programInfo, cameraMatrix, buffers);
 				chunk.playerTicket = true;
 			}
@@ -1174,6 +1181,8 @@ function drawScene(gl, programInfo, buffers, deltaTime) {
 	}
 	newMouseButtons = 0;
 	newkeys.clear()
+	updateTrack(canvas.height / 4);
+	drawPad();
 }
 
 
@@ -1257,7 +1266,7 @@ window.addEventListener('beforeinstallprompt', (e) => {
 	e.preventDefault();
 	deferredPrompt = e;
 });
-const touchListener = TouchListener(canvas);
+const touchListener = TouchListener(trackcanvas);
 touchListener.addEventListener('taps', (touch) => {
 	if (touch.startX < canvas.width * 1 / 4 && touch.startY < canvas.height * 1 / 4) {
 		console.log("install");
@@ -1271,6 +1280,106 @@ touchListener.addEventListener('taps', (touch) => {
 		return
 	}
 })
+const trackctx = trackcanvas.getContext("2d");
+const ctx2d = canvas2d.getContext("2d");
+function draw3rdSquare(x, y) {
+	trackctx.beginPath();
+	trackctx.rect(x, y, track.third, track.third);
+	trackctx.fill();
+}
+function drawPad() {
+	trackctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+	ctx2d.globalCompositeOperation = "source-over";
+	ctx2d.beginPath();
+	ctx2d.rect(track.left, track.middleY, track.radius, track.radius);
+	if (keys.has("ShiftLeft")) {
+		ctx2d.fillStyle = "#3336";
+	} else {
+		ctx2d.fillStyle = "#BBB6";
+	}
+	ctx2d.fill();
+	ctx2d.globalCompositeOperation = "destination-out";
+	ctx2d.fillStyle = "#000";
+	ctx2d.lineWidth = 20;
+	ctx2d.beginPath();
+	ctx2d.arc(track.middleX, track.middleY, track.radius, 0, Math.PI * 2);
+	ctx2d.stroke();
+	ctx2d.fill();
+
+
+	trackctx.globalCompositeOperation = "source-over";
+	trackctx.fillStyle = "#BBB6"
+	trackctx.beginPath();
+	trackctx.arc(track.middleX, track.middleY, track.radius, 0, Math.PI * 2);
+	trackctx.fill();
+	trackctx.globalCompositeOperation = "source-atop";
+	trackctx.fillStyle = "#3336"
+	if (keys.has("KeyW")) {
+		draw3rdSquare(track.X3A, track.top);
+		if (keys.has("KeyA")) {
+			draw3rdSquare(track.left, track.top);
+		}
+		if (keys.has("KeyD")) {
+			draw3rdSquare(track.X3B, track.top);
+		}
+	}
+	if (keys.has("KeyS")) {
+		draw3rdSquare(track.X3A, track.Y3B);
+		if (keys.has("KeyA")) {
+			draw3rdSquare(track.left, track.Y3B);
+		}
+		if (keys.has("KeyD")) {
+			draw3rdSquare(track.X3B, track.Y3B);
+		}
+	}
+	if (keys.has("KeyA")) {
+		draw3rdSquare(track.left, track.Y3A);
+	}
+	if (keys.has("KeyD")) {
+		draw3rdSquare(track.X3B, track.Y3A);
+	}
+	if (keys.has("Space")) {
+		draw3rdSquare(track.X3A, track.Y3A);
+	}
+
+	trackctx.globalCompositeOperation = "destination-out";
+	trackctx.lineWidth = 10;
+	trackctx.beginPath();
+	trackctx.moveTo(track.X3A, track.top);
+	trackctx.lineTo(track.X3A, track.bottom);
+	trackctx.stroke();
+	trackctx.beginPath();
+	trackctx.moveTo(track.X3B, track.top);
+	trackctx.lineTo(track.X3B, track.bottom);
+	trackctx.stroke();
+	trackctx.beginPath();
+	trackctx.moveTo(track.left, track.Y3A);
+	trackctx.lineTo(track.right, track.Y3A);
+	trackctx.stroke();
+	trackctx.beginPath();
+	trackctx.moveTo(track.left, track.Y3B);
+	trackctx.lineTo(track.right, track.Y3B);
+	trackctx.stroke();
+
+	trackctx.globalCompositeOperation = "source-over";
+}
+function updateTrack(radius) {
+	track.radius = radius;
+	track.left = 0;
+	track.right = track.left + track.radius * 2;
+	track.bottom = canvas.height;
+	track.top = track.bottom - track.radius * 2;
+	track.middleX = track.left + track.radius;
+	track.middleY = track.top + track.radius;
+	track.third = track.radius * 2 / 3
+	track.X3A = track.left + track.third;
+	track.X3B = track.left + track.third * 2;
+	track.Y3A = track.top + track.third;
+	track.Y3B = track.top + track.third * 2;
+
+}
+let mostrecentmovingtouch = null;
 touchListener.addEventListener('new', touch => {
 	if (touch.startX > canvas.width * 3 / 4 && touch.startY < canvas.height * 1 / 4) {
 		currentBlock += 1;
@@ -1294,30 +1403,83 @@ touchListener.addEventListener('new', touch => {
 		console.log("place");
 	}
 	// Only use height for square
-	if (touch.startX < canvas.height / 2 && touch.startY > canvas.height / 2) {
-		console.log("move");
-		touch.addEventListener('update', () => {
-			const rawAngle = Math.atan2(-touch.currentY + canvas.height * 3 / 4, touch.currentX - canvas.height * 1 / 4)
-			const shifted = rawAngle * 2 / Math.PI + .5;
-			const dir = Math.floor(((shifted % 4) + 4) % 4)
-			const code = ["KeyD", "KeyW", "KeyA", "KeyS"][dir]
-			if (!keys.has(code)) {
-				newkeys.add(code);
+	updateTrack(canvas.height / 4);
+	if (touch.startX < track.right && touch.startY > track.top && touch.startX > track.left && touch.startY < track.bottom) {
+		const ty = (track.middleY - touch.startY);
+		const tx = (track.middleX - touch.startX);
+		const d2 = tx * tx + ty * ty;
+		if (d2 <= track.radius * track.radius) {
+			mostrecentmovingtouch = touch;
+			if (
+				touch.startX > track.X3A &&
+				touch.startX < track.X3B &&
+				touch.startY > track.Y3A &&
+				touch.startY < track.Y3B) {
+				keys.add("Space");
+				newkeys.add("Space");
 			}
-			keys.delete("KeyD")
-			keys.delete("KeyW")
-			keys.delete("KeyA")
-			keys.delete("KeyS")
-			keys.add(code);
+			console.log("jumpmove");
+			touch.addEventListener('update', () => {
+				if (touch.path.length > 1) {
+					const previousX = touch.path[touch.path.length - 2][0];
+					const previousY = touch.path[touch.path.length - 2][1];
+					if (previousX > track.X3B) {
+						keys.delete("KeyD");
+					}
+					if (previousX < track.X3A) {
+						keys.delete("KeyA");
+					}
+					if (previousY > track.Y3B) {
+						keys.delete("KeyS");
+					}
+					if (previousY < track.Y3A) {
+						keys.delete("KeyW");
+					}
+				}
 
-		})
-		touch.addEventListener('end', () => {
-			keys.delete("KeyD")
-			keys.delete("KeyW")
-			keys.delete("KeyA")
-			keys.delete("KeyS")
-		})
-		return
+				if (touch.currentX > track.X3B) {
+					keys.add("KeyD");
+				}
+				if (touch.currentX < track.X3A) {
+					keys.add("KeyA");
+				}
+				if (touch.currentY > track.Y3B) {
+					keys.add("KeyS");
+				}
+				if (touch.currentY < track.Y3A) {
+					keys.add("KeyW");
+				}
+
+			})
+			touch.addEventListener('end', () => {
+				if (touch.currentX > track.X3B) {
+					keys.delete("KeyD");
+				}
+				if (touch.currentX < track.X3A) {
+					keys.delete("KeyA");
+				}
+				if (touch.currentY > track.Y3B) {
+					keys.delete("KeyS");
+				}
+				if (touch.currentY < track.Y3A) {
+					keys.delete("KeyW");
+				}
+				if (touch === mostrecentmovingtouch) {
+					keys.delete("Space")
+				}
+			})
+			return
+		}
+		if (touch.startX < track.middleX && touch.startY > track.middleY) {
+			keys.add("ShiftLeft");
+			touch.addEventListener('end', () => {
+				keys.delete("ShiftLeft");
+			})
+
+			return;
+		}
+
+
 	}
 	touch.addEventListener('update', () => {
 		if (touch.path.length < 2) {
